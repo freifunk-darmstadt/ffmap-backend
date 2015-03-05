@@ -64,5 +64,5 @@ os.rename(options['destination_directory'] + '/nodes.json.new', options['destina
 
 # render graphs (this becomes really cpu consuming...)
 rrd = RRD(scriptdir + "/nodedb/", options['destination_directory'] + "/nodes")
-RRD.update_database(db)
-RRD.update_images()
+rrd.update_database(db)
+rrd.update_images()
