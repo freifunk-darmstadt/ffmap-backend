@@ -1,6 +1,5 @@
 import os
 import subprocess
-from node import Node
 from RRD import RRD, DS, RRA
 
 class NodeRRD(RRD):
@@ -9,10 +8,10 @@ class NodeRRD(RRD):
         DS('clients', 'GAUGE', 120, 0, float('NaN')),
     ]
     rra_list = [
-        RRA('AVERAGE', 0.5, 1, 120),    #  2 hours of  1 minute samples
-        RRA('AVERAGE', 0.5, 5, 1440),   #  5 days  of  5 minute samples
-        RRA('AVERAGE', 0.5, 60, 720),   # 30 days  of  1 hour   samples
-        RRA('AVERAGE', 0.5, 720, 730),  #  1 year  of 12 hour   samples
+        RRA('AVERAGE', 0.5, 1, 120),    # 2 hours of 1 minute samples
+        RRA('AVERAGE', 0.5, 5, 1440),   # 5 days  of 5 minute samples
+        RRA('AVERAGE', 0.5, 60, 720),   # 30 days of 1 hour samples
+        RRA('AVERAGE', 0.5, 720, 730),  # 1 year of 12 hour samples
     ]
 
     def __init__(self, filename, node = None):
