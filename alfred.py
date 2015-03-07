@@ -63,7 +63,7 @@ class Alfred(object):
                 pass
 
             # gps location
-            if 'location' in node:
+            if 'location' in data:
                 try:
                     node['gps'] = (data['location']['latitude'],
                                    data['location']['longitude'])
