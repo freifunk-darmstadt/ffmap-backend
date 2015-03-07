@@ -44,13 +44,13 @@ def main(options):
     nodes_json.write(map_builder.build())
     nodes_json.close()
 
-    os.rename(options['destination_directory'] + '/nodes.json.new',
-              options['destination_directory'] + '/nodes.json')
+    os.rename(options['dest'] + '/nodes.json.new',
+              options['dest'] + '/nodes.json')
 
     # render graphs (this becomes really cpu consuming the more nodes you have)
     scriptdir = os.path.dirname(os.path.realpath(__file__))
     rrd = RRD(db_dir=scriptdir + "/nodedb/",
-              image_dir=options['destination_directory'] + "/nodes")
+              image_dir=options['dest'] + "/nodes")
     rrd.update_database(nodedb)
     rrd.update_images()
 
