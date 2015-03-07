@@ -10,8 +10,8 @@ class Link():
         self.source = source
         self.target = target
 
-        self.id = '-'.join(sorted((self.source.interface,
-                                   self.target.interface)))
+    def set_id(self, id):
+        self.id = id
 
     def set_quality(self, quality):
         self.quality = quality

@@ -154,6 +154,7 @@ class NodeDB:
                 link.connect(source=LinkConnector(self._nodes.index(router), x['router']),
                              target=LinkConnector(self._nodes.index(neighbor), x['neighbor']))
                 link.set_quality(x['label'])
+                link.set_id('-'.join(sorted((link.source.interface, link.target.interface))))
 
                 self._links.append(link)
 
@@ -183,7 +184,7 @@ class NodeDB:
         links = []
 
         def reduce_link(a, b):
-            a.id = b.id
+            a.set_id(b.id)
             a.connect(source=b.source, target=b.target)
             a.set_type(b.type)
             a.set_quality(", ".join([x for x in (a.quality, b.quality) if x]))
