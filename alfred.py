@@ -50,6 +50,18 @@ class Alfred(object):
         for mac, data in alfred_data.items():
             node = {}
 
+            # mac address
+            try:
+                node['id'] = data['network']['mac']
+            except KeyError:
+                pass
+
+            # hostname
+            try:
+                node['name'] = data['hostname']
+            except KeyError:
+                pass
+
             # gps location
             if 'location' in node:
                 try:
@@ -70,15 +82,9 @@ class Alfred(object):
             except KeyError:
                 pass
 
-            # mac address
+            # hardware model
             try:
-                node['id'] = data['network']['mac']
-            except KeyError:
-                pass
-
-            # hostname
-            try:
-                node['name'] = data['hostname']
+                node['hardware'] = data['hardware']['model']
             except KeyError:
                 pass
 

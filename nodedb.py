@@ -182,7 +182,7 @@ class NodeDB:
 
         def reduce_link(a, b):
             a.id = b.id
-            a.connect(source=b.source, target=target)
+            a.connect(source=b.source, target=b.target)
             a.set_type(b.type)
             a.set_quality(", ".join([x for x in (a.quality, b.quality) if x]))
 
@@ -207,18 +207,21 @@ class NodeDB:
 
             # look through data given by alfred and handle import
             for key, value in entry.items():
-                if key == 'name':
+                if key == 'name':  # user-given node name
                     node.name = value
+                elif key == 'id':  # hardware mac address
+                    node.id = value
+                elif key == 'clientcount':
+                    node.clientcount = value
                 elif key == 'vpn':
                     node.interfaces[mac].vpn = True
                 elif key == 'gps':
                     node.gps = "%s %s" % (value[0], value[1])
                 elif key == 'firmware':
                     node.firmware = value
-                elif key == 'id':
-                    node.id = value
-                elif key == 'clientcount':
-                    node.clientcount = value
+                elif key == 'hardware':
+                    node.hardware = value
+
                 else:
                     print("import_alfred_data: unhandled key '%s' with value '%s' given" % (key, value))
 
