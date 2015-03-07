@@ -22,7 +22,7 @@ class NodeRRD(RRD):
         """
         self.node = node
         super().__init__(filename)
-        self.ensureSanity(self.ds_list, self.rra_list, step=60)
+        self.ensure_sanity(self.ds_list, self.rra_list, step=60)
 
     @property
     def imagename(self):

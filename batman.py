@@ -1,75 +1,58 @@
-#!/usr/bin/env python3
 import subprocess
 import json
 import re
 
 
-class Batman:
-    """ Bindings for B.A.T.M.A.N. advanced batctl tool
+class Batman(object):
+    """
+    Bindings for B.A.T.M.A.N. advanced (v15 compat) batctl tool
     """
 
     def __init__(self, mesh_interface="bat0"):
         self.mesh_interface = mesh_interface
 
-    def vis_data(self):
-        vd = self.vis_data_batadv_vis()
-        return vd
+    def batadv_vis(self):
+        """
+        Parse "batadv-vis -i <mesh_interface> -f json"
+        into an array of dictionaries.
+        """
+        output = subprocess.check_output(
+            ["batadv-vis", "-i", self.mesh_interface, "-f", "json"])
+        lines = output.decode('utf-8').splitlines()
+        return [json.loads(line) for line in lines]
 
-    def vis_data_helper(self, lines):
-        vd = []
+    def gateways(self):
+        """
+        Parse "batctl -m <mesh_interface> gwl -n"
+        into an array of dictionaries.
+        """
+        output = subprocess.check_output(
+            ["batctl", "-m", self.mesh_interface, "gwl", "-n"])
+        lines = output.decode("utf-8").splitlines()
+
+        # pattern to find mac addresses with colon delimiter
+        mac_addr = re.compile(r'(([a-z0-9]{2}:){5}[a-z0-9]{2})')
+
+        gateway_list = []
+
+        # check if the local server is a gateway
+        if self.gw_mode() == 'server':
+            local_mac_addr = mac_addr.search(lines[0]).group(0)
+            gateway_list.append(local_mac_addr)
+
+        # find non-local gateways
         for line in lines:
-            try:
-                utf8_line = line.decode("utf-8")
-                vd.append(json.loads(utf8_line))
-            except UnicodeDecodeError:
-                pass
-        return vd
+            match = mac_addr.search(line)
+            if match:
+                gateway_list.append(match.group(0))
 
-    def vis_data_batadv_vis(self):
-        """ Parse "batadv-vis -i <mesh_interface> -f json" into an array of dictionaries.
+        return gateway_list
+
+    def gw_mode(self):
         """
-        output = subprocess.check_output(["batadv-vis", "-i", self.mesh_interface, "-f", "json"])
-        lines = output.splitlines()
-        return self.vis_data_helper(lines)
-
-    def gateway_list(self):
-        """ Parse "batctl -m <mesh_interface> gwl -n" into an array of dictionaries.
+        Parse "batctl -m <mesh_interface> gw_mode"
         """
-        output = subprocess.check_output(["batctl", "-m", self.mesh_interface, "gwl", "-n"])
-        output_utf8 = output.decode("utf-8")
-        lines = output_utf8.splitlines()
-
-        own_mac = re.match(r"^.*MainIF/MAC: [^/]+/([0-9a-f:]+).*$", lines[0]).group(1)
-
-        gw = []
-        gw_mode = self.gateway_mode()
-        if gw_mode['mode'] == 'server':
-            gw.append(own_mac)
-
-        for line in lines:
-            gw_line = re.match(r"^(?:=>)? +([0-9a-f:]+) ", line)
-            if gw_line:
-                gw.append(gw_line.group(1))
-
-        return gw
-
-    def gateway_mode(self):
-        """ Parse "batctl -m <mesh_interface> gw"
-        """
-        output = subprocess.check_output(["batctl", "-m", self.mesh_interface, "gw"])
+        output = subprocess.check_output(
+            ["batctl", "-m", self.mesh_interface, "gw"])
         elements = output.decode("utf-8").split()
-        mode = elements[0]
-        if mode == "server":
-            return {'mode': 'server', 'bandwidth': elements[3]}
-        else:
-            return {'mode': mode}
-
-
-if __name__ == "__main__":
-    bc = Batman()
-    vd = bc.vis_data()
-    gw = bc.gateway_list()
-    for x in vd:
-        print(x)
-    print(gw)
-    print(bc.gateway_mode())
+        return elements[0]

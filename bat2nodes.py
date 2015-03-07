@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import json
 import argparse
 import os
@@ -13,56 +12,60 @@ from d3mapbuilder import D3MapBuilder
 import locale  # Ensure that subsequent open()s are UTF-8 encoded.
 locale.getpreferredencoding = lambda _=None: 'UTF-8'
 
-# import sys
-# sys.stdin = open('/dev/stdin', 'r')
-# sys.stdout = open('/dev/stdout', 'w')
-# sys.stderr = open('/dev/stderr', 'w')
 
-parser = argparse.ArgumentParser()
+def main(options):
+    nodedb = NodeDB(int(time.time()))
 
-parser.add_argument('-a', '--aliases', help='read aliases from FILE', action='append', metavar='FILE')
-parser.add_argument('-m', '--mesh', action='append', default=["bat0"], help='batman mesh interface')
-parser.add_argument('-A', '--alfred', action='store_true', help='retrieve aliases from alfred')
-parser.add_argument('-d', '--destination-directory', action='store', help='destination directory for generated files',
-                    required=True)
+    for mesh_interface in options['mesh']:
+        batman = Batman(mesh_interface)
+        nodedb.parse_vis_data(batman.batadv_vis())
+        for gw in batman.gateways():
+            nodedb.mark_gateway(gw)
 
-args = parser.parse_args()
-options = vars(args)
+    if options['aliases']:
+        for aliases in options['aliases']:
+            nodedb.import_alfred_data(json.load(open(aliases)))
 
-db = NodeDB(int(time.time()))
+    if options['alfred']:
+        alfred = Alfred()
+        nodedb.import_alfred_data(alfred.lookup())
 
-for mesh_interface in options['mesh']:
-    bm = Batman(mesh_interface)
-    db.parse_vis_data(bm.vis_data())
-    for gw in bm.gateway_list():
-        db.mark_gateway(gw)
+    # load historic data, prune inactive nodes, and save it
+    nodedb.load_state("state.json")
+    nodedb.prune_offline(time.time() - 30 * 86400)
+    nodedb.dump_state("state.json")
 
-if options['aliases']:
-    for aliases in options['aliases']:
-        db.import_alfred_data(json.load(open(aliases)))
+    # d3.js graph builder
+    map_builder = D3MapBuilder(nodedb)
 
-if options['alfred']:
-    af = Alfred()
-    db.import_alfred_data(af.lookup())
+    # write nodes json, and when finished, move to proper location
+    nodes_json = open(options['dest'] + '/nodes.json.new', 'w')
+    nodes_json.write(map_builder.build())
+    nodes_json.close()
 
-db.load_state("state.json")
-db.prune_offline(time.time() - 30 * 86400)  # remove nodes that have been offline for more than 30 days
-db.dump_state("state.json")
+    os.rename(options['destination_directory'] + '/nodes.json.new',
+              options['destination_directory'] + '/nodes.json')
 
-scriptdir = os.path.dirname(os.path.realpath(__file__))
+    # render graphs (this becomes really cpu consuming the more nodes you have)
+    scriptdir = os.path.dirname(os.path.realpath(__file__))
+    rrd = RRD(db_dir=scriptdir + "/nodedb/",
+              image_dir=options['destination_directory'] + "/nodes")
+    rrd.update_database(nodedb)
+    rrd.update_images()
 
-# graph builder
-m = D3MapBuilder(db)
 
-# write nodes json
-nodes_json = open(options['destination_directory'] + '/nodes.json.new', 'w')
-nodes_json.write(m.build())
-nodes_json.close()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-# move to destination
-os.rename(options['destination_directory'] + '/nodes.json.new', options['destination_directory'] + '/nodes.json')
+    parser.add_argument('-a', '--aliases', help='read aliases from FILE',
+                        action='append', metavar='FILE')
+    parser.add_argument('-m', '--mesh', action='append', default=["bat0"],
+                        help='batman mesh interface')
+    parser.add_argument('-A', '--alfred', action='store_true',
+                        help='retrieve aliases from alfred')
+    parser.add_argument('-d', '--dest', action='store',
+                        help='destination directory for generated files',
+                        required=True)
 
-# render graphs (this becomes really cpu consuming...)
-rrd = RRD(scriptdir + "/nodedb/", options['destination_directory'] + "/nodes")
-rrd.update_database(db)
-rrd.update_images()
+    args = parser.parse_args()
+    main(vars(args))

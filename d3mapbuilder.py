@@ -12,25 +12,18 @@ class D3MapBuilder:
         now = datetime.datetime.utcnow().replace(microsecond=0)
 
         nodes = self._db.get_nodes()
-
-        output['nodes'] = [{'name': x.name, 'id': x.id,
-                            'geo': [float(x) for x in x.gps.split(" ")] if x.gps else None,
-                            'firmware': x.firmware,
-                            'flags': x.flags,
-                            'clientcount': x.clientcount
-                           } for x in nodes]
+        output['nodes'] = [{'name': node.name, 'id': node.id,
+                            'geo': [float(x) for x in node.gps.split(" ")] if node.gps else None,
+                            'firmware': node.firmware,
+                            'flags': node.flags,
+                            'clientcount': node.clientcount} for node in nodes]
 
         links = self._db.get_links()
+        output['links'] = [{'source': link.source.id, 'target': link.target.id,
+                            'quality': link.quality,
+                            'type': link.type,
+                            'id': link.id} for link in links]
 
-        output['links'] = [{'source': x.source.id, 'target': x.target.id,
-                            'quality': x.quality,
-                            'type': x.type,
-                            'id': x.id
-                           } for x in links]
-
-        output['meta'] = {
-            'timestamp': now.isoformat()
-        }
+        output['meta'] = {'timestamp': now.isoformat()}
 
         return json.dumps(output)
-

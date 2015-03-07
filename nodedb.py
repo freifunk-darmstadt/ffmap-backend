@@ -81,7 +81,6 @@ class NodeDB:
 
     def parse_vis_data(self, vis_data):
         for x in vis_data:
-
             if 'of' in x:
                 try:
                     node = self.maybe_node_by_mac((x['of'], x['secondary']))
@@ -150,15 +149,9 @@ class NodeDB:
                     continue
 
                 link = Link()
-                link.source = LinkConnector()
-                link.source.interface = x['router']
-                link.source.id = self._nodes.index(router)
-                link.target = LinkConnector()
-                link.target.interface = x['neighbor']
-                link.target.id = self._nodes.index(neighbor)
-                link.quality = x['label']
-                link.id = "-".join(sorted((link.source.interface,
-                                           link.target.interface)))
+                link.connect(source=LinkConnector(self._nodes.index(router), x['router']),
+                             target=LinkConnector(self._nodes.index(neighbor), x['neighbor']))
+                link.set_quality(x['label'])
 
                 self._links.append(link)
 
@@ -189,10 +182,9 @@ class NodeDB:
 
         def reduce_link(a, b):
             a.id = b.id
-            a.source = b.source
-            a.target = b.target
-            a.type = b.type
-            a.quality = ", ".join([x for x in (a.quality, b.quality) if x])
+            a.connect(source=b.source, target=target)
+            a.set_type(b.type)
+            a.set_quality(", ".join([x for x in (a.quality, b.quality) if x]))
 
             return a
 
@@ -205,43 +197,30 @@ class NodeDB:
     def import_alfred_data(self, data):
         for mac, entry in data.items():
             try:
+                # try to find the node
                 node = self.maybe_node_by_mac([mac])
             except KeyError:
-                # create an offline node
+                # else create an offline node
                 node = Node()
                 node.add_mac(mac)
                 self._nodes.append(node)
 
-            try:
-                node.name = entry['name']
-            except KeyError:
-                pass
-
-            if 'vpn' in entry and entry['vpn']:
-                try:
+            # look through data given by alfred and handle import
+            for key, value in entry.items():
+                if key == 'name':
+                    node.name = value
+                elif key == 'vpn':
                     node.interfaces[mac].vpn = True
-                except KeyError:
-                    pass
-
-            try:
-                node.gps = entry['gps']
-            except KeyError:
-                pass
-
-            try:
-                node.firmware = entry['firmware']
-            except KeyError:
-                pass
-
-            try:
-                node.id = entry['id']
-            except KeyError:
-                pass
-
-            try:
-                node.clientcount = entry['clientcount']
-            except KeyError:
-                pass
+                elif key == 'gps':
+                    node.gps = "%s %s" % (value[0], value[1])
+                elif key == 'firmware':
+                    node.firmware = value
+                elif key == 'id':
+                    node.id = value
+                elif key == 'clientcount':
+                    node.clientcount = value
+                else:
+                    print("import_alfred_data: unhandled key '%s' with value '%s' given" % (key, value))
 
     def mark_gateway(self, gateway):
         try:

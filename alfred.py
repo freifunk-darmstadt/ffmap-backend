@@ -1,22 +1,37 @@
-#!/usr/bin/env python3
 import subprocess
 import json
 
 
-class Alfred:
-    def __init__(self):
-        pass
+class Alfred(object):
+    """
+    Bindings for the alfred-json utility
+    """
 
-    def get_data(self):
+    def __init__(self, socket='/run/alfred.sock'):
+        self.socket = socket
+
+    def query(self):
+        """
+        Query alfred-json for data types 158 (nodeinfo) and 159 (statistics)
+        and merge received data by mac addresses
+        """
         json_nodeinfo = subprocess.check_output(
-            ['alfred-json', '-r', '158', '-f', 'json', '-z'])
+            ['alfred-json',
+             '-s', self.socket,
+             '-r', '158',
+             '-f', 'json',
+             '-z'])
         json_statistics = subprocess.check_output(
-            ['alfred-json', '-r', '159', '-f', 'json', '-z'])
+            ['alfred-json',
+             '-s', self.socket,
+             '-r', '159',
+             '-f', 'json',
+             '-z'])
 
         nodeinfo = json.loads(json_nodeinfo.decode('utf-8'))
         statistics = json.loads(json_statistics.decode('utf-8'))
 
-        # merge alfred data by mac address
+        # merge by mac address
         for k in nodeinfo:
             if k in statistics:
                 nodeinfo[k].update(statistics[k])
@@ -26,49 +41,48 @@ class Alfred:
         return nodeinfo
 
     def lookup(self):
-        alfred_data = self.get_data()
+        """
+        Extract alfred data for use in NodeDB
+        """
+        alfred_data = self.query()
 
-        data = {}
-        for mac, node in alfred_data.items():
-            node_alias = {}
+        tmp = {}
+        for mac, data in alfred_data.items():
+            node = {}
 
             # gps location
             if 'location' in node:
                 try:
-                    node_alias['gps'] = "%s %s" % (node['location']['latitude'], node['location']['longitude'])
+                    node['gps'] = (data['location']['latitude'],
+                                   data['location']['longitude'])
                 except KeyError:
                     pass
 
-            # client count (since gluon 2014.4)
+            # client count (via alfred since gluon 2014.4)
             try:
-                node_alias['clientcount'] = node['clients']['total']
+                node['clientcount'] = data['clients']['total']
             except KeyError:
                 pass
 
             # firmware version
             try:
-                node_alias['firmware'] = node['software']['firmware']['release']
+                node['firmware'] = data['software']['firmware']['release']
             except KeyError:
                 pass
 
             # mac address
             try:
-                node_alias['id'] = node['network']['mac']
+                node['id'] = data['network']['mac']
             except KeyError:
                 pass
 
             # hostname
-            if 'hostname' in node:
-                node_alias['name'] = node['hostname']
-            elif 'name' in node:
-                node_alias['name'] = node['name']
+            try:
+                node['name'] = data['hostname']
+            except KeyError:
+                pass
 
-            if len(node_alias):
-                data[mac] = node_alias
-        return data
+            if len(node):
+                tmp[mac] = node
 
-
-if __name__ == '__main__':
-    ad = Alfred()
-    al = ad.lookup()
-    print(al)
+        return tmp

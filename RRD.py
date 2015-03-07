@@ -1,12 +1,11 @@
 import subprocess
 import re
-import io
 import os
-from tempfile import TemporaryFile
 from operator import xor, eq
 from functools import reduce
 from itertools import starmap
 import math
+
 
 class RRDIncompatibleException(Exception):
     """
@@ -14,6 +13,8 @@ class RRDIncompatibleException(Exception):
     upgraded to it.
     """
     pass
+
+
 class RRDOutdatedException(Exception):
     """
     Is raised when an RRD doesn't have the desired definition, but can be
@@ -21,11 +22,12 @@ class RRDOutdatedException(Exception):
     """
     pass
 
-if not hasattr(__builtins__, "FileNotFoundError"):
+if not hasattr(__builtins__, 'FileNotFoundError'):
     class FileNotFoundError(Exception):
         pass
 
-class RRD:
+
+class RRD(object):
     """
     An RRD is a Round Robin Database, a database which forgets old data and
     aggregates multiple records into new ones.
@@ -49,7 +51,7 @@ class RRD:
 
     def _exec_rrdtool(self, cmd, *args, **kwargs):
         pargs = ["rrdtool", cmd, self.filename]
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             pargs.extend(["--" + k, str(v)])
         pargs.extend(args)
         subprocess.check_output(pargs)
@@ -57,7 +59,7 @@ class RRD:
     def __init__(self, filename):
         self.filename = filename
 
-    def ensureSanity(self, ds_list, rra_list, **kwargs):
+    def ensure_sanity(self, ds_list, rra_list, **kwargs):
         """
         Create or upgrade the RRD file if necessary to contain all DS in
         ds_list. If it needs to be created, the RRAs in rra_list and any kwargs
@@ -65,13 +67,13 @@ class RRD:
         database are NOT modified!
         """
         try:
-            self.checkSanity(ds_list)
+            self.check_sanity(ds_list)
         except FileNotFoundError:
             self.create(ds_list, rra_list, **kwargs)
         except RRDOutdatedException:
             self.upgrade(ds_list)
 
-    def checkSanity(self, ds_list=()):
+    def check_sanity(self, ds_list=()):
         """
         Check if the RRD file exists and contains (at least) the DS listed in
         ds_list.
@@ -82,7 +84,8 @@ class RRD:
         if set(ds_list) - set(info['ds'].values()) != set():
             for ds in ds_list:
                 if ds.name in info['ds'] and ds.type != info['ds'][ds.name].type:
-                    raise RRDIncompatibleException("%s is %s but should be %s" % (ds.name, ds.type, info['ds'][ds.name].type))
+                    raise RRDIncompatibleException("%s is %s but should be %s" %
+                                                   (ds.name, ds.type, info['ds'][ds.name].type))
             else:
                 raise RRDOutdatedException()
 
@@ -106,7 +109,7 @@ class RRD:
                 old_ds = info['ds'][ds.name]
                 if info['ds'][ds.name].type != ds.type:
                     raise RuntimeError('Cannot convert existing DS "%s" from type "%s" to "%s"' %
-                        (ds.name, old_ds.type, ds.type))
+                                       (ds.name, old_ds.type, ds.type))
                 ds.index = old_ds.index
                 new_ds[ds.index] = ds
             else:
@@ -143,16 +146,9 @@ class RRD:
                            <value>%s</value>
                            <unknown_sec> %i </unknown_sec>
                         </ds>
-                        """ % (
-                            ds.name,
-                            ds.type,
-                            ds.args[0],
-                            ds.args[1],
-                            ds.args[2],
-                            ds.last_ds,
-                            ds.value,
-                            ds.unknown_sec)
-                    , "utf-8"))
+                        """ % (ds.name, ds.type,
+                               ds.args[0], ds.args[1], ds.args[2],
+                               ds.last_ds, ds.value, ds.unknown_sec), 'utf-8'))
 
             if b'</cdp_prep>' in line:
                 restore.stdin.write(added_ds_num*b"""
@@ -196,11 +192,11 @@ class RRD:
         )
         self._cached_info = None
 
-    def update(self, V):
+    def update(self, val):
         """
-        Update the RRD with new values V.
+        Update the RRD with new values val.
 
-        V can be either list or dict:
+        val can be either list or dict:
         * If it is a dict, its keys must be DS names in the RRD and it is
           ensured that the correct DS are updated with the correct values, by
           passing a "template" to rrdtool update (see man rrdupdate).
@@ -208,10 +204,10 @@ class RRD:
           values in V must be the same as that of the DS in the RRD.
         """
         try:
-            args = ['N:' + ':'.join(map(str, V.values()))]
-            kwargs = {'template': ':'.join(V.keys())}
+            args = ['N:' + ':'.join(map(str, val.values()))]
+            kwargs = {'template': ':'.join(val.keys())}
         except AttributeError:
-            args = ['N:' + ':'.join(map(str, V))]
+            args = ['N:' + ':'.join(map(str, val))]
             kwargs = {}
         self._exec_rrdtool("update", *args, **kwargs)
         self._cached_info = None
@@ -254,7 +250,7 @@ class RRD:
                     except ValueError:
                         try:
                             base[name] = float(value)
-                        except:
+                        except ValueError:
                             base[name] = value
         dss = {}
         for name, ds in info['ds'].items():
@@ -272,7 +268,8 @@ class RRD:
         self._cached_info = info
         return info
 
-class DS:
+
+class DS(object):
     """
     DS stands for Data Source and represents one line of data points in a Round
     Robin Database (RRD).
@@ -284,6 +281,7 @@ class DS:
     last_ds = 'U'
     value = 0
     unknown_sec = 0
+
     def __init__(self, name, dst, *args):
         self.name = name
         self.type = dst
@@ -293,7 +291,7 @@ class DS:
         return "DS:%s:%s:%s" % (
             self.name,
             self.type,
-            ":".join(map(str, self._nan_to_U_args()))
+            ":".join(map(str, self._nan_to_u_args()))
         )
 
     def __repr__(self):
@@ -310,7 +308,7 @@ class DS:
     def __hash__(self):
         return reduce(xor, map(hash, self._compare_keys()))
 
-    def _nan_to_U_args(self):
+    def _nan_to_u_args(self):
         return tuple(
             'U' if type(arg) is float and math.isnan(arg)
             else arg
@@ -318,9 +316,10 @@ class DS:
         )
 
     def _compare_keys(self):
-        return (self.name, self.type, self._nan_to_U_args())
+        return self.name, self.type, self._nan_to_u_args()
 
-class RRA:
+
+class RRA(object):
     def __init__(self, cf, *args):
         self.cf = cf
         self.args = args
