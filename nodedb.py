@@ -216,7 +216,7 @@ class NodeDB:
                 elif key == 'vpn':
                     node.interfaces[mac].vpn = True
                 elif key == 'gps':
-                    node.gps = "%s %s" % (value[0], value[1])
+                    node.gps = "%s %s" % value
                 elif key == 'firmware':
                     node.firmware = value
                 elif key == 'hardware':
