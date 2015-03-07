@@ -36,7 +36,8 @@ class NodeDB:
                         'lastseen': node.lastseen,
                         'firstseen': node.firstseen,
                         'geo': node.gps,
-                        'hardware': node.hardware})
+                        'hardware': node.hardware,
+                        'firmware': node.firmware})
 
         with open(filename, "w") as f:
             json.dump(obj, f)
